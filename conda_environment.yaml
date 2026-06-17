@@ -2,9 +2,10 @@ name: pyVPRM
 dependencies:
   - dask
   - netCDF4
+  - h5netcdf
   - esmf
   - esmpy
-
+  - rioxarray
   - tqdm
   - gitsummary
   - loguru
