@@ -2,7 +2,7 @@ import os
 from pyVPRM.lib.flux_tower_class import fluxnet, icos
 from pyVPRM.sat_managers.viirs import VIIRS
 from pyVPRM.sat_managers.modis import modis
-from pyVPRM.VPRM import vprm
+from pyVPRM.VPRM import vprm_preprocessor
 import xarray as xr
 import pickle
 import yaml
@@ -114,7 +114,7 @@ inp_files = np.array([i for i in inp_files if ".xml" not in i])
 _, inds = np.unique([os.path.basename(f) for f in inp_files], return_index=True)
 inp_files = inp_files[inds]
 
-vprm_inst = vprm(n_cpus=1, sites=[flux_tower_inst])
+vprm_inst = vprm_preprocessor(n_cpus=1, sites=[flux_tower_inst])
 
 for c, i in enumerate(inp_files):
     print(i)

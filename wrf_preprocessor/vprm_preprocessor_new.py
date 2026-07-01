@@ -8,7 +8,7 @@ from pyVPRM.lib.functions import (
     add_corners_to_1d_grid,
     parse_wrf_grid_file,
 )
-from pyVPRM.VPRM import vprm
+from pyVPRM.VPRM import vprm_preprocessor
 import yaml
 import glob
 import time
@@ -79,15 +79,15 @@ for c, i in enumerate(hvs):
 
     # Note: There is no need to convert MODIS HDF4 into Netcdf files. You can also use HDF4 files directly.
     file_collections = glob.glob(
-        os.path.join(cfg["sat_image_path"], "*h{:02d}v{:02d}*.nc".format(i[0], i[1]))
+        os.path.join(cfg["sat_image_path"], "*h{:02d}v{:02d}*.hdf".format(i[0], i[1]))
     )
 
     if len(file_collections) == 0:
         continue
 
-    new_inst = vprm(
+    new_inst = vprm_preprocessor(
         vprm_config_path=os.path.join(
-            pyVPRM.__path__[0], "vprm_configs/copernicus_land_cover.yaml"
+            pyVPRM.__path__[0], "vprm_configs/copernicus_land_cover_wrf.yaml"
         ),
         n_cpus=args.n_cpus,
     )
@@ -220,7 +220,7 @@ regridder_path = os.path.join(
 print("Create regridder")
 wrf_op = vprm_inst.to_wrf_output(
     out_grid,
-    driver="xEMSF",  # currently only xESMF works here when the WRF grid is 2D
+    driver="xESMF",  # currently only xESMF works here when the WRF grid is 2D
     regridder_save_path=regridder_path,
     mpi=False,
 )

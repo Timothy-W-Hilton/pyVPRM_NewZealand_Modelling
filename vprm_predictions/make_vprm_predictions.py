@@ -4,10 +4,10 @@ import pyVPRM
 from pyVPRM.sat_managers.viirs import VIIRS
 from pyVPRM.sat_managers.modis import modis
 from pyVPRM.sat_managers.copernicus import copernicus_land_cover_map
-from pyVPRM.VPRM import vprm
+from pyVPRM.VPRM import vprm_preprocessor
 from pyVPRM.meteorologies import era5_monthly_xr, era5_class_dkrz
 from pyVPRM.lib.functions import lat_lon_to_modis
-from pyVPRM.vprm_models import vprm_modified, vprm_base
+from pyVPRM.vprm_models import vprm_modified_model, vprm_base_model
 import glob
 import time
 import yaml
@@ -67,7 +67,7 @@ if not os.path.exists(cfg["predictions_path"]):
 
 
 # Initialize VPRM instance with the copernicus land cover config
-vprm_inst = vprm(
+vprm_inst = vprm_preprocessor(
     vprm_config_path=os.path.join(
         pyVPRM.__path__[0], "vprm_configs/copernicus_land_cover.yaml"
     ),
@@ -77,7 +77,7 @@ vprm_inst = vprm(
 # Note: There is no need to convert HDF4 into Netcdf files. You can also use HDF4 files directly.
 files = glob.glob(
     os.path.join(
-        cfg["sat_image_path"], "*h{:02d}v{:02d}*.nc".format(h, v)  # str(args.year),
+        cfg["sat_image_path"], "*h{:02d}v{:02d}*.hdf".format(h, v)  # str(args.year),
     )
 )
 
@@ -89,6 +89,8 @@ for c, i in enumerate(sorted(files)):
     if cfg["satellite"] == "modis":
         handler = modis(sat_image_path=i)
         handler.load()
+        if handler.sat_img.rio.crs is None:
+            handler.sat_img = handler.sat_img.rio.set_crs(handler.default_crs_str)
         vprm_inst.add_sat_img(
             handler,
             b_nir="sur_refl_b02",
@@ -100,10 +102,13 @@ for c, i in enumerate(sorted(files)):
             timestamp_key="sur_refl_day_of_year",
             mask_bad_pixels=True,
             mask_clouds=True,
+            satellite_indices=["evi", "lswi"],
         )
     else:
         handler = VIIRS(sat_image_path=i)
         handler.load()
+        if handler.sat_img.rio.crs is None:
+            handler.sat_img = handler.sat_img.rio.set_crs(handler.default_crs_str)
         vprm_inst.add_sat_img(
             handler,
             b_nir="SurfReflect_I2",
@@ -112,6 +117,7 @@ for c, i in enumerate(sorted(files)):
             b_swir="SurfReflect_I3",
             which_evi="evi2",
             drop_bands=True,
+            satellite_indices=["evi", "lswi"],
         )
 
 # Sort the satellite data by time and run the lowess smoothing
@@ -132,7 +138,9 @@ for c in glob.glob(os.path.join(cfg["copernicus_path"], "*")):
     # Generate a copernicus_land_cover_map instance
     thandler = copernicus_land_cover_map(c)
     thandler.load()
-    bounds = vprm_inst.prototype.sat_img.rio.transform_bounds(thandler.sat_img.rio.crs)
+    bounds = vprm_inst.prototype_satellite_manager.sat_img.rio.transform_bounds(
+        thandler.sat_img.rio.crs
+    )
 
     # Check overlap with our satellite images
     dj = rasterio.coords.disjoint_bounds(bounds, thandler.sat_img.rio.bounds())
@@ -169,7 +177,7 @@ era5_inst = era5_monthly_xr.met_data_handler(
 with open(cfg["vprm_params_dict"], "rb") as ifile:
     res_dict = pickle.load(ifile)
 
-vprm_model = vprm_base.vprm_base(
+vprm_model = vprm_base_model.vprm_base_model(
     vprm_pre=vprm_inst, met=era5_inst, fit_params_dict=res_dict
 )
 
